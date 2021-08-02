@@ -31,7 +31,7 @@ Constructor
 Reads Seed File, Sets Grid, and Class Variables
 */
 MinesweeperGame::MinesweeperGame(const std::string& filePath)
-	: numBombs(0), flagPlaced(0), correctFlag(0), rounds(0), sizeWin(0), stateOfGame(gameState::Neutral), rows(0), cols(0), exitCode(0)
+	: numBombs(0), flagPlaced(0), correctFlag(0), rounds(0), sizeWin(0), cheat(false),stateOfGame(gameState::Neutral), rows(0), cols(0), exitCode(0)
 {
 	/* Reserving atleast 20 bytes of data to the vector for the minimum 5 ints in the seed file */
 	seedVals.reserve(5);
@@ -83,7 +83,7 @@ MinesweeperGame::MinesweeperGame(const std::string& filePath)
 		rows = seedVals[0];
 		cols = seedVals[1];
 		numBombs = seedVals[2];
-		sizeWin = rows * cols - numBombs;
+		sizeWin = rows * cols - numBombs + 1;
 
 		/* Error Checking */
 		checkSeedFile();
@@ -267,7 +267,13 @@ gameState MinesweeperGame::promptUser()
 	else if ((s_UserInput == "mark") || (s_UserInput == "m")) /* <F> */
 	{
 		vec2 coord = { y, x };
-		grid[coord.y][coord.x] = "<F>";
+		grid[coord.y][coord.x] = " F ";
+		for (vec2 bombCoord : bombCoords)
+		{
+			if ((cheat == true) && (y == bombCoord.y) && (x == bombCoord.x))
+				grid[y][x] = "<F>";
+		}
+		rounds++;
 		flagCoords.push_back(coord);
 		removeDupe(flagCoords);
 		/* Checks to see how many correct flags have been placed */
@@ -290,7 +296,12 @@ gameState MinesweeperGame::promptUser()
 
 	else if ((s_UserInput == "guess") || (s_UserInput == "g"))
 	{
-		grid[y][x] = "<g>";
+		grid[y][x] = " g ";
+		for (vec2 bombCoord : bombCoords)
+		{
+			if ((cheat == true) && (y == bombCoord.y) && (x == bombCoord.x))
+				grid[y][x] = "<g>";
+		}
 		rounds++;
 		return gameState::Neutral;
 	}
@@ -318,10 +329,19 @@ Click Enter to Continue
 	}
 	else if (s_UserInput == "nofog") /* Cheat Commnad O.o */
 	{
+		cheat = true;
 		for (vec2 coords : bombCoords)
 		{
-			if (grid[coords.y][coords.x] != "<F>")
-				grid[coords.y][coords.x] = "< >";
+			if (grid[coords.y][coords.x] == " F ")
+				grid[coords.y][coords.x] = "<F>";
+			if (grid[coords.y][coords.x] == " g ")
+				grid[coords.y][coords.x] = "<g>";
+
+			if (grid[coords.y][coords.x] != "<F>")  
+				if (grid[coords.y][coords.x] != "<g>")
+					if (grid[coords.y][coords.x] != " F ") 
+						if (grid[coords.y][coords.x] != " g ")
+							grid[coords.y][coords.x] = "< >";
 		}
 		rounds++;
 		return gameState::Neutral;
@@ -393,10 +413,10 @@ gameState MinesweeperGame::checkRevealed(vec2& coord)
 	}
 	if (bombCount > 0)
 	{
-		grid[coord.y][coord.x] = '<' + std::to_string(bombCount) + '>';
+		grid[coord.y][coord.x] = ' ' + std::to_string(bombCount) + ' ';
 		return gameState::Neutral;
 	}
-	grid[coord.y][coord.x] = "< >";
+	grid[coord.y][coord.x] = " 0 ";
 	return gameState::Neutral;
 }
 

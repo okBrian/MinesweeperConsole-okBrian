@@ -45,6 +45,7 @@ private:
 	/*Class vars initialized on line 34 */
 	int numBombs, flagPlaced, correctFlag, rounds;
 	unsigned int sizeWin;
+	bool cheat;
 	gameState stateOfGame;
 	/* 2d Vec grid */
 	std::vector<std::vector<std::string>> grid;
