@@ -1,10 +1,10 @@
-﻿#include "MinesweeperGame.h"
+﻿#include "MinesweeperGame.hpp"
 
 /*
 argc - amount of command line argument
 argv - array of each command line argument
 */
-int main (int argc, char* argv[])
+int main(int argc, char *argv[])
 {
 	if (argc < 2)
 	{
@@ -20,7 +20,6 @@ int main (int argc, char* argv[])
 			return 2;
 		else if (game.exitCode == 3)
 			return 3;
-
 	}
 
 	return 0;

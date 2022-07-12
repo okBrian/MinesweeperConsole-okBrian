@@ -1,22 +1,21 @@
-﻿#include "MinesweeperGame.h"
+﻿#include "MinesweeperGame.hpp"
 
 /* Checks if the os is Windows */
 #ifdef _WIN32
 #include <windows.h>
-void Clear() {
-	COORD topLeft = { 0, 0 };
+void Clear()
+{
+	COORD topLeft = {0, 0};
 	HANDLE console = GetStdHandle(STD_OUTPUT_HANDLE);
 	CONSOLE_SCREEN_BUFFER_INFO screen;
 	DWORD written;
 
 	GetConsoleScreenBufferInfo(console, &screen);
 	FillConsoleOutputCharacterA(
-		console, ' ', screen.dwSize.X * screen.dwSize.Y, topLeft, &written
-	);
+		console, ' ', screen.dwSize.X * screen.dwSize.Y, topLeft, &written);
 	FillConsoleOutputAttribute(
 		console, FOREGROUND_GREEN | FOREGROUND_RED | FOREGROUND_BLUE,
-		screen.dwSize.X * screen.dwSize.Y, topLeft, &written
-	);
+		screen.dwSize.X * screen.dwSize.Y, topLeft, &written);
 	SetConsoleCursorPosition(console, topLeft);
 }
 #else
@@ -26,29 +25,27 @@ void Clear()
 }
 #endif
 
-/* 
+/*
 Constructor
 Reads Seed File, Sets Grid, and Class Variables
 */
-MinesweeperGame::MinesweeperGame(const std::string& filePath)
-	: numBombs(0), flagPlaced(0), correctFlag(0), rounds(0), sizeWin(0), cheat(false),stateOfGame(gameState::Neutral), rows(0), cols(0), exitCode(0)
+MinesweeperGame::MinesweeperGame(const std::string &filePath)
+	: cheat(false), stateOfGame(gameState::Neutral)
 {
 	/* Reserving atleast 20 bytes of data to the vector for the minimum 5 ints in the seed file */
 	seedVals.reserve(5);
 
-	std::ifstream scanner(filePath);
-	std::string tempLine;
+	std::ifstream in(filePath, std::ios::binary);
 	std::string seedContent;
 
 	/* if Seed File is openable */
-	if (scanner)
+	if (in)
 	{
-		/* Itterates through each line of the seed file */
-		while (scanner.good())
-		{
-			std::getline(scanner, tempLine);
-			seedContent.append(tempLine + ' ');
-		}
+		in.seekg(0, std::ios::end);
+		seedContent.resize(in.tellg());
+		in.seekg(0, std::ios::beg);
+		in.read(&seedContent[0], seedContent.size());
+		in.close();
 	}
 	else
 	{
@@ -56,28 +53,38 @@ MinesweeperGame::MinesweeperGame(const std::string& filePath)
 		showExitCode(exitCode, "Seed File Not Found Error: " + filePath);
 		stateOfGame = gameState::Quit;
 	}
-
-	/* Removes White Space */
-	std::stringstream ss_SeedVals(seedContent);
-
-	/* stringstream converted to std::string */
-	std::string s_SeedVals = ss_SeedVals.str();
-	/* Checks to see if s_SeedVals has anything other than digits and whitespace ie - 'a', 'b', 'c' */
-	if (s_SeedVals.find_first_not_of("0123456789 ") != std::string::npos)
+	
+	std::string s_SeedVal{};
+	for (const char& c : seedContent)
 	{
-		exitCode = 3;
-		showExitCode(3, "Seed File Malformed Error: Expected Token is not a Digit");
-		stateOfGame = gameState::Quit;
+		if (std::isdigit(c))
+		{
+			s_SeedVal+=c;
+		}
+		else if (((c == ' ') || (c == '\n')) && (s_SeedVal[s_SeedVal.length()] != ' '))
+		{
+			try
+			{
+				seedVals.emplace_back(std::stoi(s_SeedVal));
+				s_SeedVal.clear();
+			}
+			catch(const std::out_of_range&)
+			{
+				exitCode = 3;
+				showExitCode(exitCode, "Integer overflow in Seed file");
+			}
+			
+		}
+	}
+	if (std::isdigit(seedContent[seedContent.length()-1]))
+	{
+		seedVals.emplace_back(std::stoi(s_SeedVal));	
 	}
 
-
-	
 	/* If something is wrong game quits */
 	if (stateOfGame != gameState::Quit)
 	{
 
-		/* Copy the strings from stringstream into integers inserted into std::vector seedVals */
-		std::copy(std::istream_iterator<int>(ss_SeedVals), std::istream_iterator<int>(), std::back_inserter(seedVals));
 
 		/* Setting Class Parameters for Clarity and Easy Use */
 		rows = seedVals[0];
@@ -100,13 +107,13 @@ MinesweeperGame::MinesweeperGame(const std::string& filePath)
 		}
 		tempVec.clear();
 	}
-
+	
 }
 
 /* Deconstructor Clears Heap Allocated Vectors */
 MinesweeperGame::~MinesweeperGame()
 {
-	
+
 	for (int i = 0; i < cols; i++)
 	{
 		grid[i].clear();
@@ -124,7 +131,7 @@ void MinesweeperGame::Game()
 	if (stateOfGame != gameState::Quit)
 	{
 		printWelcome();
-		std::cout << "Press Enter to continue" << std::endl;
+		fmt::print("Please Press Enter to Continue\n");
 		std::cin.ignore();
 		Clear();
 
@@ -163,7 +170,7 @@ inline void MinesweeperGame::printWin()
 	/* For Windows Cmd setting text output to Unicode 16 */
 	if (_setmode(_fileno(stdout), _O_U16TEXT))
 	{
-	std::wcout << LR"(
+		std::wcout << LR"(
  ░░░░░░░░░▄░░░░░░░░░░░░░░▄░░░░ "So Doge"
  ░░░░░░░░▌▒█░░░░░░░░░░░▄▀▒▌░░░
  ░░░░░░░░▌▒▒█░░░░░░░░▄▀▒▒▒▐░░░ "Such Score"
@@ -197,28 +204,26 @@ inline void MinesweeperGame::printLoss()
 | (_| | (_| | | | | | |  __/ | (_) \ V /  __/ |
  \__, |\__,_|_| |_| |_|\___|  \___/ \_/ \___|_|
  |___/
-	)" << std::endl;
+	)";
 }
 
 void MinesweeperGame::printMineField()
 {
-	std::cout << "Rounds Completed: " << rounds << "\n\n";
-
+	fmt::print("Rounds Completed: {}\n\n", rounds);
 	/* Prints Grid and Beautifies it */
-	for (unsigned int i = 0; i < grid.size(); i++)
+	for (int i = 0; i < grid.size(); i++)
 	{
-		std::cout << i << ' ';
-		for (unsigned int j = 0; j < grid[i].size(); j++)
-			std::cout << '|' << grid[i][j];
-		std::cout << '|' << std::endl;
+		fmt::print("{} ", i);
+		for (int j = 0; j < grid[i].size(); j++)
+			fmt::print("|{}", grid[i][j]);
+		fmt::print("|\n");
 	}
 
 	/* Prints the index numbers at the bottom */
-	std::cout << "    ";
-	for (unsigned int i = 0; i < grid[0].size(); i++)
-		std::cout << i << "   ";
-
-	std::cout << std::endl;
+	fmt::print("    ");
+	for (int i = 0; i < grid[0].size(); i++)
+		fmt::print("{}   ", i);
+	fmt::print("\n");
 }
 
 gameState MinesweeperGame::promptUser()
@@ -227,16 +232,16 @@ gameState MinesweeperGame::promptUser()
 	printMineField();
 
 	std::string input;
-	std::cout << "minesweeper-alpha: ";
+	fmt::print("minesweeper-alpha: ");
 	std::getline(std::cin, input);
 
 	/* Removes whitespace */
 	std::stringstream ss_UserInput(input);
 
 	std::string s_UserInput;
-	 int y = 0;
-	 int x = 0;
-	 /* Puts each value seperated by whitespace into a std::string, and 2 ints */
+	int y = 0;
+	int x = 0;
+	/* Puts each value seperated by whitespace into a std::string, and 2 ints */
 	ss_UserInput >> s_UserInput >> y >> x;
 
 	/* Transform the string to lower case letters */
@@ -245,14 +250,14 @@ gameState MinesweeperGame::promptUser()
 	/* Checks to see if the integers are in range of the grid */
 	if ((y > rows - 1) || (x > cols - 1))
 	{
-		std::cout << "Invalid Command: " << input << "\nClick Enter to Continue ";
+		fmt::print("Invalid Command: {}\nClink Enter to Continue", input);
 		std::cin.ignore();
 		return gameState::Neutral;
 	}
 	else if ((s_UserInput == "reveal") || (s_UserInput == "r")) /* <1>, <2>, < > */
 	{
-		vec2 coord = { y, x };
-		revealedSquares.push_back(coord);
+		vec2 coord = {y, x};
+		revealedSquares.emplace_back(coord);
 		/* Removes Duplicate Revealed Square coords*/
 		removeDupe(revealedSquares);
 
@@ -266,7 +271,7 @@ gameState MinesweeperGame::promptUser()
 
 	else if ((s_UserInput == "mark") || (s_UserInput == "m")) /* <F> */
 	{
-		vec2 coord = { y, x };
+		vec2 coord = {y, x};
 		grid[coord.y][coord.x] = " F ";
 		for (vec2 bombCoord : bombCoords)
 		{
@@ -284,7 +289,6 @@ gameState MinesweeperGame::promptUser()
 					if ((flagCoord.y == bombCoord.y) && (flagCoord.x == bombCoord.x))
 						correctFlag++;
 		}
-
 
 		if ((correctFlag == numBombs) && (revealedSquares.size() == sizeWin))
 			return gameState::Win;
@@ -337,9 +341,9 @@ Click Enter to Continue
 			if (grid[coords.y][coords.x] == " g ")
 				grid[coords.y][coords.x] = "<g>";
 
-			if (grid[coords.y][coords.x] != "<F>")  
+			if (grid[coords.y][coords.x] != "<F>")
 				if (grid[coords.y][coords.x] != "<g>")
-					if (grid[coords.y][coords.x] != " F ") 
+					if (grid[coords.y][coords.x] != " F ")
 						if (grid[coords.y][coords.x] != " g ")
 							grid[coords.y][coords.x] = "< >";
 		}
@@ -361,9 +365,9 @@ void MinesweeperGame::findBombs()
 	bombCoords.reserve(vecSize);
 	int ind1 = 3;
 	int ind2 = 4;
-	vec2 coord = { seedVals[ind1] , seedVals[ind2] };
+	vec2 coord = {seedVals[ind1], seedVals[ind2]};
 
-	for ( int i = 0; i < seedVals[2]; i++)
+	for (int i = 0; i < seedVals[2]; i++)
 	{
 		coord.y = seedVals[ind1];
 		coord.x = seedVals[ind2];
@@ -372,13 +376,12 @@ void MinesweeperGame::findBombs()
 		ind2 += 2;
 	}
 
-	/* Lamda (anon function) Checks to see if any one of the vec2 coords are larger than the rows or cols */
-	auto check = 
-		/*Captures - class variables rows, and cols */[&rows = MinesweeperGame::rows, &cols = MinesweeperGame::cols]
-		/*Parameter vec2 Coords from BombCoords */	  (const vec2& coords)
-		/* If coord.y >= rows or coord.x >= cols */		{return coords.y >= rows || coords.x >= cols; };
-
-		/* Lambdas are normally formatted like this - [capture](parameter) { code here; }; */
+	/* Checks to see if any one of the vec2 coords are larger than the rows or cols */
+	auto check =
+		/*Captures - class variables rows, and cols */ [&rows = MinesweeperGame::rows, &cols = MinesweeperGame::cols]
+		/*Parameter vec2 Coords from BombCoords */ (const vec2 &coords)
+	/* If coord.y >= rows or coord.x >= cols */
+	{ return coords.y >= rows || coords.x >= cols; };
 
 	/* Check if any Bomb Coordinates are too large */
 	if (std::any_of(bombCoords.begin(), bombCoords.end(), check))
@@ -387,10 +390,9 @@ void MinesweeperGame::findBombs()
 		showExitCode(exitCode, "Seed File Malformed Error: Bomb Coordinates too large ");
 		stateOfGame = gameState::Quit;
 	}
-
 }
 
-gameState MinesweeperGame::checkRevealed(vec2& coord)
+gameState MinesweeperGame::checkRevealed(vec2 &coord)
 {
 	int bombCount = 0;
 	for (vec2 bombCoord : bombCoords)
@@ -399,16 +401,14 @@ gameState MinesweeperGame::checkRevealed(vec2& coord)
 		if ((coord.y == bombCoord.y) && (coord.x == bombCoord.x))
 			return gameState::Loss;
 
-		constexpr vec2 offset[8] = 
-		{ 
-			{+1, 0}, {-1, 0}, { 0,+1}, { 0,-1}, 
-			{-1,-1}, {+1,-1}, {-1,+1}, {+1,+1} 
-		};
+		const vec2 offset[8] =
+			{
+				{+1, 0}, {-1, 0}, {0, +1}, {0, -1}, {-1, -1}, {+1, -1}, {-1, +1}, {+1, +1}};
 
 		/* Itterates through each offset value to up, up-right, right, down-right, down, down-left, left, up-left */
 		for (int i = 0; i < 8; i++)
 		{
-			surrondingBomb(coord.y + offset[i].y , coord.x + offset[i].x, bombCoord, bombCount);
+			surrondingBomb(coord.y + offset[i].y, coord.x + offset[i].x, bombCoord, bombCount);
 		}
 	}
 	if (bombCount > 0)
@@ -420,20 +420,22 @@ gameState MinesweeperGame::checkRevealed(vec2& coord)
 	return gameState::Neutral;
 }
 
-void MinesweeperGame::surrondingBomb(const int& y, const int& x, vec2& bombCoord, int& bombCount)
+void MinesweeperGame::surrondingBomb(const int &y, const int &x, vec2 &bombCoord, int &bombCount)
 {
 	if ((y == bombCoord.y) && (x == bombCoord.x))
 		bombCount++;
 }
 
 /* Removes Duplicate vec2 from a vector */
-void MinesweeperGame::removeDupe(std::vector<vec2>& vecList)
+void MinesweeperGame::removeDupe(std::vector<vec2> &vecList)
 {
 	/* Sorts the list from any 2 vec2 in the same vector from greatest to least I think */
-	auto less = [](const vec2& vec, const vec2& vec1) {return vec.x < vec1.x && vec.y < vec1.y; };
+	auto less = [](const vec2 &vec, const vec2 &vec1)
+	{ return vec.x < vec1.x && vec.y < vec1.y; };
 
 	/* Checks for any equal vec2 in the vector */
-	auto equal = [](const vec2& vec, const vec2& vec1) {return vec.x == vec1.x && vec.y == vec1.y; };
+	auto equal = [](const vec2 &vec, const vec2 &vec1)
+	{ return vec.x == vec1.x && vec.y == vec1.y; };
 
 	std::sort(vecList.begin(), vecList.end(), less);
 	/* std::unique finds the extra vec2 if they are sorted ie - {1,2}{1,2} removes 1 {1,2}, but {1,2}{1,1}{1,2} nothing gets removed */
@@ -442,10 +444,10 @@ void MinesweeperGame::removeDupe(std::vector<vec2>& vecList)
 	vecList.erase(last, vecList.end());
 }
 
-void showExitCode(const int& exitCode, const std::string& msg)
+void showExitCode(const int& exitCode,const std::string &msg)
 {
-	std::cout  << msg << "\nExit : " << exitCode << "\nClick Enter to Continue";
-	std::cin.get();
+	fmt::print("{}\nExit : {}\nClick Enter to Continue", msg, exitCode);
+	std::cin.ignore();
 }
 
 void MinesweeperGame::checkSeedFile()
@@ -493,17 +495,14 @@ void MinesweeperGame::checkSeedFile()
 		showExitCode(exitCode, "Seed File Malformed Error: Too Many Mines");
 		stateOfGame = gameState::Quit;
 	}
-
 }
-
-
 
 /*
 Recusion :/
 DOESN'T WORK MIGHT LOOK INTO LATER
 
-PROBLEM - 
-INFINTE LOOP IF COORD HAS BOMB NEARBY 
+PROBLEM -
+INFINTE LOOP IF COORD HAS BOMB NEARBY
 GETS STUCK TOO OFTEN
 
 void MinesweeperGame::recursion(vec2& coord)
